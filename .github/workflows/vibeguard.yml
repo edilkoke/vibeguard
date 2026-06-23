@@ -1,0 +1,56 @@
+# VibeGuard CI gates — red blocks merge. (enforces the catalogue)
+name: VibeGuard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks needs history
+
+      # VG-007, VG-008 — secret detection across the repo + history
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: ci/gitleaks.toml
+
+      # VG-007 — reject known-common LLM default secrets
+      - name: Common-secret blocklist
+        run: node ci/check-common-secrets.mjs
+
+      # VG-011..016 — static analysis mapped to the VibeGuard catalogue
+      - name: SAST (Semgrep)
+        run: |
+          python -m pip install --quiet semgrep
+          semgrep --config ci/semgrep/vibeguard.yml --error --quiet --exclude evaluation
+
+      # VG-016, VG-017 — PII/secret in logs & tokens in URLs
+      - name: Privacy lint
+        run: node ci/privacy-lint.mjs
+
+      # VG-020 — vulnerable dependencies
+      - name: Dependency audit
+        run: |
+          if [ -f package-lock.json ]; then
+            npm audit --audit-level=high
+          else
+            echo "No lockfile yet — skipping (add one before release)."
+          fi
+
+      # VG-021 — tests must pass (no-op until tests exist)
+      - name: Tests
+        run: |
+          if [ -f package.json ] && npm run | grep -q " test"; then
+            npm ci && npm test
+          else
+            echo "No test script yet — add tests before release."
+          fi

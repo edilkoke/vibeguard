@@ -1,0 +1,22 @@
+# VibeGuard pre-commit hooks — catch the obvious before it leaves your machine.
+# Install: pipx install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        args: ["--config", "ci/gitleaks.toml"]
+
+  - repo: local
+    hooks:
+      - id: vibeguard-common-secrets
+        name: VibeGuard common-secret blocklist (VG-007)
+        entry: node ci/check-common-secrets.mjs
+        language: system
+        pass_filenames: false
+
+      - id: vibeguard-privacy-lint
+        name: VibeGuard privacy lint (VG-016)
+        entry: node ci/privacy-lint.mjs
+        language: system
+        pass_filenames: false

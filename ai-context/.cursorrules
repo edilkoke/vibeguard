@@ -1,0 +1,24 @@
+# VibeGuard secure-by-default rules (Cursor)
+# Stack: Next.js + Supabase. Satisfy every rule by construction; never weaken a control to make code run.
+
+ALWAYS:
+- Never hardcode/inline secrets; read from env. Never expose Supabase service_role, Stripe secret, or OpenAI keys to the client; only anon/publishable keys are public. (VG-007, VG-008)
+- Authorize every read and write by ownership; deny by default; enable Supabase RLS with per-user policies; use non-guessable IDs. (VG-002, VG-003)
+- Parameterized queries / ORM only — never string-concat SQL. Keep auto-escaping on; avoid dangerouslySetInnerHTML/v-html. Never pass user input to a shell as a string. Never unsafe-deserialize untrusted data. (VG-011..VG-014)
+- Set security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options) and CSRF tokens + SameSite cookies on state-changing routes. (VG-018)
+- Never log secrets/PII or full requests; keep tokens out of URLs. (VG-016)
+- Pass only explicit DTO fields to Client Components; never whole server objects/config. (VG-010)
+- Verify a package exists before importing; pin via lockfile; prefer current versions. (VG-020)
+- Rate-limit auth and costly endpoints; re-validate server-side; never trust client validation alone. (VG-019)
+
+WHEN AUTH IS PRESENT:
+- Auth/authorization on the server; client holds only a post-verification session token. (VG-001)
+- Hash passwords with Argon2id or bcrypt cost>=12; never plaintext/md5/sha1. (VG-006)
+- Short-lived rotating sessions, invalidated on logout; tokens in HttpOnly+Secure+SameSite cookies, never localStorage. (VG-004, VG-015)
+- No default credentials; no debug/test routes in production. (VG-005, VG-009)
+
+WHEN PII/IDENTITY/PAYMENTS/HEALTH:
+- Minimize data to third parties (DPA per processor); ship a delete endpoint + retention for PII fields. (VG-017)
+
+BEFORE FINISHING:
+- List the rules that applied and confirm each detect condition is absent. Functional != production-safe.

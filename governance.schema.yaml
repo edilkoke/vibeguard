@@ -1,0 +1,51 @@
+# ============================================================================
+# VibeGuard — governance.yaml SCHEMA  (the proportionality engine)
+# ----------------------------------------------------------------------------
+# A project declares WHAT IT TOUCHES; VibeGuard derives WHICH CONTROLS APPLY.
+# This file documents the schema. Copy governance.example.yaml to your project
+# root as `governance.yaml` and edit the values.
+#
+# Selection logic (summary):
+#   - Rules with `applies_when: always` are ALWAYS mandatory.
+#   - A rule whose `applies_when` lists a data flag becomes mandatory when that
+#     flag is true (see rules/catalogue.yaml).
+#   - `enforce_level` raises the bar for optional/extra controls:
+#         minimal  -> baseline rules only
+#         standard -> baseline + triggered rules (default)
+#         strict   -> standard + extras (MFA, DAST, audit logging) — auto-set
+#                     when payments/identity/health data are present.
+# ============================================================================
+
+version: 1                       # schema version (integer)
+
+project:
+  name: string                   # repo / app name
+  stack: enum                    # supported: nextjs-supabase (v1)
+  environment: enum              # dev | staging | production
+
+# ---- WHAT THE APP TOUCHES — drives mandatory controls -----------------------
+data:
+  authentication: bool           # user logins / sessions
+  customer_pii: bool             # names, emails, contact details
+  identity: bool                 # ID verification, government IDs
+  payments: bool                 # card data, Stripe, billing
+  location: bool                 # GPS / geolocation
+  health_data: bool              # health / medical (raises to strict)
+
+# ---- EXPOSURE ---------------------------------------------------------------
+exposure:
+  public_internet: bool          # reachable from the open internet
+  third_parties: [string]        # external processors (e.g. stripe, sendgrid, twilio)
+
+# ---- CONTROL LEVEL ----------------------------------------------------------
+controls:
+  enforce_level: enum            # minimal | standard | strict
+                                 # auto-promoted to `strict` if payments/identity/health = true
+
+# ---- AUDITABLE OVERRIDES ----------------------------------------------------
+# Opting out of a mandatory rule REQUIRES a reason; CI records it.
+overrides:
+  - rule: string                 # rule id, e.g. VG-016
+    status: enum                 # waived | accepted-risk
+    reason: string               # why (mandatory, non-empty)
+    expires: date                # optional review date (YYYY-MM-DD)

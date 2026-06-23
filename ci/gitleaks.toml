@@ -1,0 +1,26 @@
+# VibeGuard gitleaks config. (VG-007, VG-008)
+title = "VibeGuard gitleaks"
+
+[extend]
+useDefault = true # inherit gitleaks' built-in secret rules
+
+[[rules]]
+id = "vibeguard-common-llm-secret"
+description = "Known-common LLM default secret"
+regex = '''(?i)(supersecret(jwt|key)?|password123|admin123|changeme|jwtsecret|your-secret-key|keyboardcat)'''
+tags = ["VG-007"]
+
+[allowlist]
+description = "Ignore documentation, rules, and template placeholders"
+paths = [
+  '''\.env\.example$''',
+  '''(^|/)docs/''',
+  '''(^|/)rules/''',
+  '''(^|/)ci/''',
+  '''(^|/)evaluation/''',
+]
+regexes = [
+  '''sk_live_xxx''',
+  '''your-anon-publishable-key''',
+  '''server-side-only''',
+]

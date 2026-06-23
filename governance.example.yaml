@@ -1,0 +1,33 @@
+# VibeGuard risk manifest — worked example
+# A small SaaS on Next.js + Supabase that takes payments and verifies identity.
+# With these flags, VibeGuard auto-promotes enforce_level to `strict`.
+
+version: 1
+
+project:
+  name: acme-rentals
+  stack: nextjs-supabase
+  environment: production
+
+data:
+  authentication: true
+  customer_pii: true
+  identity: true          # ID verification → strict
+  payments: true          # Stripe → strict
+  location: true          # GPS tracking
+  health_data: false
+
+exposure:
+  public_internet: true
+  third_parties: [stripe, sendgrid, twilio]
+
+controls:
+  enforce_level: strict   # auto-set because payments + identity are present
+
+# Example of an auditable opt-out: this app has no password-reset flow yet,
+# so the "reset tokens in URLs" rule is not applicable — recorded, not ignored.
+overrides:
+  - rule: VG-016
+    status: waived
+    reason: "No password-reset flow shipped yet; revisit when added."
+    expires: 2026-12-31

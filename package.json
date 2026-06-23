@@ -1,0 +1,24 @@
+{
+  "name": "vibeguard",
+  "version": "0.1.0",
+  "description": "Research-backed security guardrails for AI-built (\"vibe-coded\") web apps — a Claude skill + governance package for Next.js + Supabase.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "check:secrets": "node ci/check-common-secrets.mjs",
+    "check:privacy": "node ci/privacy-lint.mjs",
+    "eval": "node evaluation/run-eval.mjs"
+  },
+  "keywords": [
+    "security",
+    "vibe-coding",
+    "ai",
+    "claude",
+    "nextjs",
+    "supabase",
+    "devsecops",
+    "owasp"
+  ],
+  "author": "Yedil Omyrzakov",
+  "engines": { "node": ">=18" }
+}

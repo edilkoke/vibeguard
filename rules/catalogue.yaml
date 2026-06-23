@@ -1,0 +1,255 @@
+# ============================================================================
+# VibeGuard rule catalogue — the 21 most common AI-coding vulnerability classes
+# ----------------------------------------------------------------------------
+# Each rule:
+#   id          unique VibeGuard id (VG-NNN)
+#   title       short name
+#   domain      grouping
+#   severity    critical | high | medium
+#   owasp       OWASP Top 10 (2021) category
+#   standard    secondary reference (ASVS / NIST / privacy law)
+#   applies_when  "always", or a list of governance.yaml data flags
+#   detect      what an insecure instance looks like (for review / SAST / DAST)
+#   enforce     which VibeGuard control closes it
+#                 (ai-rule | sast | secret-scan | sca | dast | llm-review |
+#                  template | ci-test | privacy-lint | pr-check)
+#   fix         the best-practice remediation
+# ============================================================================
+version: 1
+rules:
+
+# ---- AUTH & ACCESS ---------------------------------------------------------
+  - id: VG-001
+    title: Client-side authentication
+    domain: auth-access
+    severity: critical
+    owasp: "A07:2021"
+    standard: "ASVS V2"
+    applies_when: [authentication]
+    detect: "Auth/authorization decided in client JS; no server-side gate."
+    enforce: [ai-rule, sast, llm-review]
+    fix: "Enforce all auth on the server; client holds only a session token issued after server-side verification."
+
+  - id: VG-002
+    title: Broken access control / IDOR
+    domain: auth-access
+    severity: critical
+    owasp: "A01:2021"
+    standard: "ASVS V4"
+    applies_when: always
+    detect: "Endpoints return records without an ownership/authorization check; sequential IDs; Supabase RLS disabled."
+    enforce: [ai-rule, sast, ci-test, pr-check]
+    fix: "Object-level authorization on every request; deny by default; enable Supabase Row-Level Security with per-user policies; use non-guessable IDs."
+
+  - id: VG-003
+    title: Missing write/delete authorization
+    domain: auth-access
+    severity: critical
+    owasp: "A01:2021"
+    standard: "ASVS V4"
+    applies_when: always
+    detect: "State-changing endpoints (update/delete) lack a permission check."
+    enforce: [ai-rule, ci-test, pr-check]
+    fix: "Explicit authorization on every mutating operation; centralize in policy/middleware; test that user A cannot mutate user B's row."
+
+  - id: VG-004
+    title: Weak session handling
+    domain: auth-access
+    severity: high
+    owasp: "A07:2021"
+    standard: "ASVS V3"
+    applies_when: [authentication]
+    detect: "Predictable tokens; sessions never expire; still valid after logout."
+    enforce: [ai-rule, template]
+    fix: "High-entropy signed tokens, short idle + absolute timeouts, rotation on privilege change, server-side invalidation on logout."
+
+  - id: VG-005
+    title: Authentication-bypass paths
+    domain: auth-access
+    severity: high
+    owasp: "A01/A07:2021"
+    standard: "ASVS V1"
+    applies_when: [authentication]
+    detect: "Leftover test/debug endpoints; auth middleware missing on some routes."
+    enforce: [ai-rule, sast, ci-test]
+    fix: "Default-deny routing with explicit exceptions; strip debug/test routes from prod builds; audit every route for an auth requirement."
+
+  - id: VG-006
+    title: Weak password storage
+    domain: auth-access
+    severity: critical
+    owasp: "A02:2021"
+    standard: "NIST SP 800-63B"
+    applies_when: [authentication]
+    detect: "Plaintext or md5/sha1 password storage; no breach-list check."
+    enforce: [ai-rule, sast, ci-test]
+    fix: "Hash with Argon2id (or bcrypt cost >= 12 / scrypt); never encrypt or store plaintext; add MFA for sensitive accounts."
+
+# ---- SECRETS & CONFIG ------------------------------------------------------
+  - id: VG-007
+    title: Predictable / reused secrets
+    domain: secrets-config
+    severity: critical
+    owasp: "A05:2021"
+    standard: "OWASP Secrets Mgmt Cheat Sheet"
+    applies_when: always
+    detect: "Secret matches a known-common LLM default (e.g. supersecretjwt); low-entropy JWT signing key."
+    enforce: [secret-scan, ai-rule, ci-test]
+    fix: "Generate every secret with a CSPRNG at deploy; store in a secrets manager; reject known-common values; rotate regularly."
+
+  - id: VG-008
+    title: Secrets in the client bundle
+    domain: secrets-config
+    severity: critical
+    owasp: "A05:2021"
+    standard: "ASVS V14"
+    applies_when: always
+    detect: "Secret keys (Supabase service_role, Stripe secret, OpenAI) reachable in frontend JS / NEXT_PUBLIC_ vars."
+    enforce: [secret-scan, sast, ai-rule]
+    fix: "Keep secrets server-side; proxy third-party calls through a backend; only publishable/anon keys client-side; scan the built bundle."
+
+  - id: VG-009
+    title: Hardcoded default credentials
+    domain: secrets-config
+    severity: high
+    owasp: "A07:2021"
+    standard: "CIS Benchmarks"
+    applies_when: [authentication]
+    detect: "Seeded demo logins (admin@example.com:password) present in code/config."
+    enforce: [secret-scan, ai-rule]
+    fix: "No seeded creds in production; force first-run admin setup; remove sample accounts before release."
+
+  - id: VG-010
+    title: Framework serialization leaks
+    domain: secrets-config
+    severity: high
+    owasp: "A04:2021"
+    standard: "Insecure Design"
+    applies_when: always
+    detect: "Server config/objects passed wholesale to a Client Component → secrets serialized into the RSC payload / HTML."
+    enforce: [ai-rule, llm-review, ci-test]
+    fix: "Explicit data contracts (DTOs): pass only the fields the client needs; scan the rendered HTML/RSC payload for secret-shaped strings."
+
+# ---- INJECTION -------------------------------------------------------------
+  - id: VG-011
+    title: SQL injection
+    domain: injection
+    severity: critical
+    owasp: "A03:2021"
+    standard: "OWASP Injection Prevention"
+    applies_when: always
+    detect: "SQL built by string concatenation with user input."
+    enforce: [ai-rule, sast]
+    fix: "Parameterized queries / prepared statements or a safe ORM builder; validate and whitelist inputs."
+
+  - id: VG-012
+    title: Cross-site scripting (XSS)
+    domain: injection
+    severity: high
+    owasp: "A03:2021"
+    standard: "OWASP XSS Prevention"
+    applies_when: always
+    detect: "Unescaped user input rendered to the DOM; dangerouslySetInnerHTML / v-html."
+    enforce: [ai-rule, sast, template]
+    fix: "Keep framework auto-escaping on; avoid raw-HTML sinks; ship a strict Content-Security-Policy."
+
+  - id: VG-013
+    title: Command injection
+    domain: injection
+    severity: critical
+    owasp: "A03:2021"
+    standard: "OWASP OS Command Injection Defense"
+    applies_when: always
+    detect: "User input passed into a shell command via string interpolation."
+    enforce: [ai-rule, sast]
+    fix: "Avoid the shell with user input; use native APIs or pass args as an array (no interpolation); validate/whitelist."
+
+  - id: VG-014
+    title: Insecure deserialization
+    domain: injection
+    severity: high
+    owasp: "A08:2021"
+    standard: "OWASP Deserialization Cheat Sheet"
+    applies_when: always
+    detect: "pickle.loads / yaml.load (unsafe) on untrusted data."
+    enforce: [ai-rule, sast]
+    fix: "Use data-only formats (JSON), yaml.safe_load, schema validation; sign/integrity-check round-tripped payloads."
+
+# ---- DATA, PRIVACY & TRANSPORT ---------------------------------------------
+  - id: VG-015
+    title: Insecure client-side storage
+    domain: data-privacy-transport
+    severity: high
+    owasp: "A05:2021"
+    standard: "ASVS V3"
+    applies_when: [authentication]
+    detect: "Auth tokens stored in localStorage / sessionStorage."
+    enforce: [ai-rule, sast, template]
+    fix: "Store session tokens in HttpOnly + Secure + SameSite cookies; keep sensitive data off the client."
+
+  - id: VG-016
+    title: Sensitive data in URLs & logs
+    domain: data-privacy-transport
+    severity: medium
+    owasp: "A09:2021"
+    standard: "OWASP Logging Cheat Sheet"
+    applies_when: always
+    detect: "Tokens/PII in query strings; console.log of full requests; unredacted logs."
+    enforce: [ai-rule, privacy-lint]
+    fix: "Pass tokens/PII in headers or body, never query strings; redact logs; short-lived single-use reset tokens."
+
+  - id: VG-017
+    title: PII to third parties; no delete / retention / consent
+    domain: data-privacy-transport
+    severity: high
+    owasp: "n/a (privacy)"
+    standard: "Australian Privacy Act 1988; GDPR"
+    applies_when: [customer_pii, identity, health_data, payments]
+    detect: "PII sent to external services without a DPA/minimization; no delete endpoint; no retention policy."
+    enforce: [privacy-lint, ai-rule, pr-check]
+    fix: "Data minimization; DPA per processor; documented retention; working access/deletion workflows; privacy by design."
+
+  - id: VG-018
+    title: Missing security headers + no CSRF
+    domain: data-privacy-transport
+    severity: high
+    owasp: "A05:2021"
+    standard: "OWASP Secure Headers; CSRF Cheat Sheet"
+    applies_when: always
+    detect: "Missing HSTS/CSP/X-Frame-Options/X-Content-Type-Options; no CSRF tokens on state-changing routes."
+    enforce: [template, ai-rule, ci-test]
+    fix: "Set the full header set (e.g. via helmet); SameSite cookies + anti-CSRF tokens on state-changing requests."
+
+# ---- ABUSE, DEPS & SDLC ----------------------------------------------------
+  - id: VG-019
+    title: No rate limiting / abuse controls
+    domain: abuse-deps-sdlc
+    severity: high
+    owasp: "A04:2021"
+    standard: "ASVS V11"
+    applies_when: always
+    detect: "Auth/OTP/signup endpoints with no throttling; backends trusting the UI."
+    enforce: [template, ai-rule, ci-test]
+    fix: "Rate-limit auth + costly endpoints (per IP/account), backoff, lockout/CAPTCHA, 429 + Retry-After; re-validate server-side; budget alerts."
+
+  - id: VG-020
+    title: Vulnerable / hallucinated / stale dependencies
+    domain: abuse-deps-sdlc
+    severity: high
+    owasp: "A06:2021"
+    standard: "NIST SSDF; SLSA"
+    applies_when: always
+    detect: "Hallucinated package names; deps pinned to old training-data versions with known CVEs."
+    enforce: [sca, ci-test]
+    fix: "SCA in CI (Dependabot/Renovate, npm/pip-audit, Dependency-Check); lockfiles; verify each package resolves from the real registry; generate an SBOM."
+
+  - id: VG-021
+    title: 'Works-in-the-demo → untested + AI logic flaws'
+    domain: abuse-deps-sdlc
+    severity: high
+    owasp: "A04:2021"
+    standard: "OWASP SAMM; NIST SSDF"
+    applies_when: always
+    detect: "Shipped without tests; runtime auth-bypass / IDOR that pass static review but fail live."
+    enforce: [ci-test, dast, llm-review, pr-check]
+    fix: "Secure SDLC: peer review, security/abuse tests, SAST + DAST + an LLM/architectural review for runtime logic flaws; gate releases on green checks; keep a human accountable."

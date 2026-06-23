@@ -1,0 +1,58 @@
+# VibeGuard Semgrep ruleset — mapped to rules/catalogue.yaml.
+# Regex-based for portability; tune patterns to your codebase. Red findings fail CI.
+rules:
+  - id: vg-008-secret-behind-public-prefix
+    languages: [generic]
+    severity: ERROR
+    message: "VG-008: a secret-looking value is behind a NEXT_PUBLIC_ prefix — it will ship to the client. Keep secrets server-side."
+    patterns:
+      - pattern-regex: 'NEXT_PUBLIC_[A-Z0-9_]*(SECRET|SERVICE_ROLE|PRIVATE|TOKEN|STRIPE_SECRET|PASSWORD)'
+
+  - id: vg-006-weak-password-hash
+    languages: [generic]
+    severity: ERROR
+    message: "VG-006: weak hash for passwords. Use Argon2id or bcrypt (cost >= 12), never md5/sha1."
+    patterns:
+      - pattern-regex: 'createHash\(\s*["''](md5|sha1)["'']\s*\)'
+
+  - id: vg-011-sql-string-interpolation
+    languages: [generic]
+    severity: ERROR
+    message: "VG-011: possible SQL injection — SQL with interpolated/concatenated input. Use parameterized queries."
+    patterns:
+      - pattern-regex: '(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE)\b[^;`''\"]*(\$\{|["'']\s*\+\s*)'
+
+  - id: vg-012-dangerously-set-inner-html
+    languages: [generic]
+    severity: WARNING
+    message: "VG-012 (XSS): dangerouslySetInnerHTML / v-html bypasses escaping. Sanitize or avoid."
+    patterns:
+      - pattern-regex: '(dangerouslySetInnerHTML|v-html)'
+
+  - id: vg-013-command-execution
+    languages: [generic]
+    severity: ERROR
+    message: "VG-013: shell execution detected. Never pass user input to a shell as a string; use arg arrays."
+    patterns:
+      - pattern-regex: 'child_process|\bexec\(|\bexecSync\(|\bspawn\('
+
+  - id: vg-014-unsafe-deserialization
+    languages: [generic]
+    severity: ERROR
+    message: "VG-014: unsafe deserialization. Use JSON / yaml.safe_load; never deserialize untrusted data into objects."
+    patterns:
+      - pattern-regex: 'pickle\.loads|yaml\.load\((?!.*Safe)|unserialize\('
+
+  - id: vg-015-token-in-localstorage
+    languages: [generic]
+    severity: WARNING
+    message: "VG-015: review localStorage use for auth tokens. Store sessions in HttpOnly cookies, not localStorage."
+    patterns:
+      - pattern-regex: 'localStorage\.(setItem|getItem)'
+
+  - id: vg-016-pii-in-logs
+    languages: [generic]
+    severity: WARNING
+    message: "VG-016: possible PII/secret in logs. Never log full requests, passwords, tokens, or emails."
+    patterns:
+      - pattern-regex: 'console\.(log|info|debug|error)\([^)]*(password|token|secret|req\b|request\b|email)'
