@@ -18,6 +18,8 @@ paths = [
   '''(^|/)rules/''',
   '''(^|/)ci/''',
   '''(^|/)evaluation/''',
+  '''(^|/)launch/''',
+  '''\.md$''',
 ]
 regexes = [
   '''sk_live_xxx''',

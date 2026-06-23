@@ -1,50 +1,76 @@
 # VibeGuard 🛡️
 
-**Research-backed security guardrails for AI-built ("vibe-coded") web apps — embedded in your workflow, not bolted on after.**
+**Catches the 21 most common security flaws in AI-generated web apps — exposed secrets, broken access control, missing RLS, injection — before they ship. A Claude skill + CI gates for Next.js + Supabase.**
 
-> Field studies find that **~75% of vibe-coded apps ship with exploitable vulnerabilities** — exposed secrets, broken access control, vulnerable dependencies. VibeGuard makes the *secure* path the *default* one, so non-specialist builders ship safe-by-default apps without slowing down.
+![license](https://img.shields.io/badge/license-MIT-green)
+![status](https://img.shields.io/badge/status-early%20access-orange)
+![PRs welcome](https://img.shields.io/badge/PRs-welcome-blue)
+![built with Claude](https://img.shields.io/badge/built%20with-Claude-8A63D2)
 
-*Status: early development (research artifact for a professional doctorate). The knowledge base and risk-manifest schema are in place; templates, CI, and the packaged skill are in progress. Built and evaluated using Design Science Research.*
+> Independent scans find **~75% of "vibe-coded" apps ship with exploitable vulnerabilities** — most often exposed secrets and broken access control. The AI writes code that *runs*, not code that's *safe*. VibeGuard makes the secure path the default one, and blocks the unsafe one in CI.
 
 ---
 
-## What it is
+## What it catches
 
-VibeGuard is a **Claude skill + governance package** that closes the most common AI-coding security flaws at the moment of generation. It ships in three forms:
+| Area | Examples it stops |
+|------|-------------------|
+| **Auth & access** | client-side auth, IDOR, missing Supabase RLS, weak sessions, md5/sha1 passwords |
+| **Secrets** | hardcoded/reused secrets, `service_role`/Stripe keys leaking into the client bundle |
+| **Injection** | SQL injection, XSS, command injection, unsafe deserialization |
+| **Data & privacy** | tokens in `localStorage`, PII in logs/URLs, missing security headers + CSRF |
+| **Deps & ship** | hallucinated/vulnerable packages, no rate limiting, untested AI edits |
 
-1. a **Claude skill** (`SKILL.md`) that steers the assistant toward secure-by-default code;
-2. a **GitHub template repo** with secure starters + CI gates;
-3. a **`.cursorrules` / `CLAUDE.md` rules pack** for any AI coding assistant.
+Full list: [`rules/catalogue.yaml`](rules/catalogue.yaml) (21 rules, mapped to OWASP / ASVS).
 
 ## How it works
 
 ```
-install → declare governance.yaml → AI generates secure-by-default → pre-commit → CI gates → PR review → merge
+declare governance.yaml  →  AI generates secure-by-default  →  pre-commit  →  CI gates  →  PR review  →  merge
 ```
 
-You declare what your app touches in `governance.yaml` (payments? identity? location?), and VibeGuard auto-selects the controls that must apply. The same rules ride inside the AI's context, so the assistant *reviews itself as it writes*.
+You declare what your app touches (`payments? identity? location?`) in `governance.yaml`; VibeGuard selects the controls that must apply. The same rules ride inside the AI's context, so the assistant **reviews itself as it writes** — then CI is the bouncer.
 
-## The four design principles
+## Install (pick what you need)
 
-- **Proportionality** — controls are matched to declared risk via `governance.yaml`.
-- **Embeddedness** — governance lives in the toolchain (AI context + CI), not a committee.
-- **Adaptability** — capability tiers; v1 targets the "builder" tier.
-- **Sustainability** — runs in your existing GitHub; no dedicated security staff assumed.
+**As a Claude skill** — point Claude at `SKILL.md`, or install the `vibeguard.skill` bundle.
 
-## Repository layout
+**As an AI rules pack** — copy `ai-context/CLAUDE.md` (or `.cursorrules`) into your repo and your assistant generates secure-by-default code.
 
-| Path | What's in it |
-|------|--------------|
-| `rules/catalogue.yaml` | The 21 vulnerability classes as machine-usable rules (the knowledge base). |
-| `governance.schema.yaml` | The risk-manifest schema (the proportionality engine). |
-| `governance.example.yaml` | A worked example for a Next.js + Supabase app. |
-| `docs/` | Design principles and the coverage map. |
-| `ai-context/` | The secure-by-default rule pack (`CLAUDE.md`, `.cursorrules`). |
-| `templates/`, `ci/` | Secure starters and CI gates (in progress). |
+**As CI gates** — copy `.github/workflows/vibeguard.yml` + `ci/` and add `governance.yaml`. Run locally:
+```bash
+npm run check:secrets   # known-common secret blocklist
+npm run check:privacy   # PII in logs / tokens in URLs
+npm run eval            # baseline-vs-treated reduction report
+```
 
-## Scope (v1)
+**As secure starters** — see [`templates/`](templates/) for hardened Next.js + Supabase building blocks (RLS, HttpOnly cookies, helmet headers, rate limiting, server-side validation).
 
-Reference stack: **Next.js (Node/TypeScript) + Supabase (Postgres + RLS)**. VibeGuard reduces common flaws at generation time — it is **not** a replacement for professional penetration testing, and makes **no claim** that an app is "secure." The claim is a *measurable reduction* in common vulnerabilities.
+## Does it actually work?
+
+On the bundled demo corpus (a vulnerable app vs its VibeGuard-built twin), the harness removed **10 of 10 planted vulnerabilities (100%)**. That validates the *pipeline* — a larger, triaged evaluation with a DAST pass is in progress. Reproduce it: `npm run eval` → [`evaluation/results/report.md`](evaluation/results/report.md).
+
+## Before / after
+
+```ts
+// ❌ before — what AI often generates
+const sql = "SELECT * FROM users WHERE id = " + req.params.id;   // SQL injection
+const key = "supersecretjwt";                                    // hardcoded secret
+console.log("req", req, body.password);                          // PII in logs
+
+// ✅ after — what VibeGuard steers toward
+const { data } = await supabase.from("users").select("id,name").eq("id", id); // parameterized + RLS
+const secret = process.env.SESSION_SECRET;                                     // env, CSPRNG, rotated
+console.error("users.read failed", { code: error.code });                      // opaque, no PII
+```
+
+## Honest scope
+
+VibeGuard **reduces** common, high-impact flaws at generation time. It is **not** a guarantee that an app is "secure" and **not** a substitute for professional testing. Reference stack today: **Next.js + Supabase**. Built and evaluated as a Design Science Research artifact.
+
+## Contributing
+
+New rules, detections, and field evidence welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Look for `good-first-issue`.
 
 ## License
 
