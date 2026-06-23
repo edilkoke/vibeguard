@@ -33,18 +33,30 @@ You declare what your app touches (`payments? identity? location?`) in `governan
 
 ## Install (pick what you need)
 
-**As a Claude skill** — point Claude at `SKILL.md`, or install the `vibeguard.skill` bundle.
+**Fastest path — Claude Code (gives you `/vibeguard`):**
+```bash
+git clone https://github.com/edilkoke/vibeguard ~/.claude/skills/vibeguard
+```
+Restart Claude Code — the skill loads automatically and is callable as `/vibeguard`. Clone into
+`.claude/skills/vibeguard` instead to scope it to one project and commit it with your repo.
 
-**As an AI rules pack** — copy `ai-context/CLAUDE.md` (or `.cursorrules`) into your repo and your assistant generates secure-by-default code.
+| Tool | One-time setup |
+|------|----------------|
+| **Claude Code** (skill → `/vibeguard`) | `git clone https://github.com/edilkoke/vibeguard ~/.claude/skills/vibeguard` |
+| **Cursor** (rules) | `curl -o .cursorrules https://raw.githubusercontent.com/edilkoke/vibeguard/main/ai-context/.cursorrules` |
+| **Any AI assistant** (rules) | copy [`ai-context/CLAUDE.md`](ai-context/CLAUDE.md) to your repo root |
+| **CI gates** | copy [`ci/`](ci/) + [`.github/workflows/vibeguard.yml`](.github/workflows/vibeguard.yml), add a `governance.yaml` |
+| **Secure starters** | copy what you need from [`templates/`](templates/) |
 
-**As CI gates** — copy `.github/workflows/vibeguard.yml` + `ci/` and add `governance.yaml`. Run locally:
+Run the checks locally any time:
 ```bash
 npm run check:secrets   # known-common secret blocklist
 npm run check:privacy   # PII in logs / tokens in URLs
 npm run eval            # baseline-vs-treated reduction report
 ```
 
-**As secure starters** — see [`templates/`](templates/) for hardened Next.js + Supabase building blocks (RLS, HttpOnly cookies, helmet headers, rate limiting, server-side validation).
+> No `curl | bash` installer on purpose — for a security tool, piping a remote script straight into
+> your shell is exactly the habit we're trying to break.
 
 ## Does it actually work?
 
